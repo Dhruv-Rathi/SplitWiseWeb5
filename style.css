@@ -37,6 +37,10 @@ input[type="text"] {
 .dinged-by-section {
   width: 100%;
 }
+.split-section,
+.settle-section {
+  width: 100%;
+}
 
 #did-buttons {
   display: flex;

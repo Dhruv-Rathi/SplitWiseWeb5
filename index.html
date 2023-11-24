@@ -24,20 +24,29 @@
     <!-- <button id="share-did">Share your DID</button> -->
     <button id="settle-did">Settle Up</button>
   </div>
-
+  <div class="ding-sections">
+    <div class="split-section">
   <h2>Split with some DID</h2>
 
   <form id="ding-form">
     <p id="ding-error"></p>
     <input type="text" id="did" placeholder="Enter DID" />
     <br>
-    <input type="text" id="note" placeholder="Enter note (optional)" />
+    <input type="text" id="note" placeholder="Enter note" />
     <br>
     <input type="text" id="amount" placeholder="Enter Amount" />
     <br>
-    <button type="submit">Ding</button>
+    <button type="submit">Split</button>
     <span id="ding-progress"></span>
   </form>
+</div>
+<div class="settle-section">
+  <h2>Settle Up</h2>
+  <ul id="settle-section">
+     <!-- List items will be added here dynamically -->
+  </ul>
+</div>
+</div>
 
   <div class="ding-sections">
     <div class="dinged-section">
@@ -53,6 +62,7 @@
         <!-- List items will be added here dynamically -->
       </ul>
     </div>
+    
   </div>
 
   <script type="module" src="/dinger.js"></script>

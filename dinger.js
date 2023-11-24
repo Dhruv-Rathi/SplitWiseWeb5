@@ -1,13 +1,13 @@
-import { Web5 } from 'https://cdn.jsdelivr.net/npm/@web5/api@0.8.1/dist/browser.mjs';
+import { Web5 } from 'https://cdn.jsdelivr.net/npm/@web5/api@0.8.2/dist/browser.mjs';
 
 
 
 const dingerProtocolDefinition = {
-  'protocol': 'https://splitwise.app/protocol',
+  'protocol': 'https://dinger.app/protocol',
   'published': true,
   'types': {
     'ding': {
-      'schema': 'ding',
+      'schema': 'ding', 
       'dataFormats': [
         'application/json'
       ]
@@ -36,11 +36,14 @@ const dingerProtocolDefinition = {
 };
 
 const copyDidElement = document.querySelector('#copy-did');
+const settleDidElment = document.querySelector('#settle-did');
 const dingForm = document.querySelector('#ding-form');
 const dingErrorElement = document.querySelector('#ding-error');
 const dingProgressElement = document.querySelector('#ding-progress');
 const dingedList = document.querySelector('#dinged-list');
 const dingedByList = document.querySelector('#dinged-by-list');
+const settleList = document.querySelector('#settle-section');
+
 
 const urlParams = new URLSearchParams(window.location.search);
 const did = urlParams.get('did');
@@ -48,21 +51,110 @@ if (did) {
   document.querySelector('#did').value = did;
 }
 
-const { web5, did: myDid } = await Web5.connect();
+const { web5, did: myDid } = await Web5.connect({sync: '5s'});
 
 await configureProtocol();
 
 setInterval(async () => {
   await renderDings();
-}, 1000);
+}, 2000);
+
+
 
 copyDidElement.addEventListener('click', async () => {
   try {
+    console.log(myDid);
     await navigator.clipboard.writeText(myDid);
   } catch (err) {
     alert('Failed to copy DID: ', err);
   }
 });
+
+settleDidElment.addEventListener('click', async () => {
+  try {
+    console.log('Settle Up is Clicked');
+    if(settleList.childElementCount === 0) {
+
+    
+    // pull messages from local dwn. sync should automatically take care of pulling new messages from remote DWNs
+    const { records, status } = await web5.dwn.records.query({
+      message: {
+        filter: {
+          protocol: dingerProtocolDefinition.protocol
+        },
+        dateSort: 'createdDescending'
+      }
+    });
+
+    if (status.code !== 200) {
+      alert('Failed to query for dings. check console');
+      console.error('Failed to query dings', status);
+
+      return;
+    }
+    // console.log(records);
+    var lentAmount = 0;
+    var owedAmount = 0;
+    for (let record of records) {
+      const recordExists = document.getElementById(record.id);
+      if (!recordExists) {
+        continue;
+      }
+
+      const { dinger, note, amount } = await record.data.json();
+      
+
+      // You Dinged:
+      if (dinger === myDid) {
+        console.log(typeof amount);
+        lentAmount = lentAmount + parseInt(amount);
+       
+      } else {
+        // Dinged By:
+        owedAmount += parseInt(amount);
+        
+      }
+    }
+    const settleLentElement = document.createElement('li');
+    settleLentElement.className = 'settle-item';
+    
+    const lentElement = document.createElement('span');
+    lentElement.textContent = `Lent Amount: ${lentAmount}`;
+    settleLentElement.appendChild(lentElement);
+
+    settleList.appendChild(settleLentElement);
+
+    const settleOwedElement = document.createElement('li');
+    settleOwedElement.className = 'settle-item';
+
+    const owedElement = document.createElement('span');
+    owedElement.textContent = `Owed Amount: ${owedAmount}`;
+    settleOwedElement.appendChild(owedElement);
+
+    settleList.appendChild(settleOwedElement);
+    const clearButton = document.createElement('button');
+    clearButton.className = 'clear-settle-section';
+    clearButton.textContent = 'Clear';
+
+    clearButton.addEventListener('click', event => {
+      // clear everything inside the #settle-section id
+      settleList.innerHTML = '';
+    });
+    settleList.appendChild(clearButton);
+  
+
+    console.log('Your Lent:', lentAmount);
+    console.log('You Owed:', owedAmount);
+  }
+    // alert(`Your Lent: ${lentAmount}`);
+  } catch (err) {
+    alert('Failed to Settle Up: ', err);
+  }
+});
+
+
+
+
 
 if ('share' in navigator) {
   const shareDidElement = document.createElement('button');
@@ -129,7 +221,7 @@ dingForm.addEventListener('submit', async (event) => {
     }
 
     const shortenedDid = did.substr(0, 22);
-    dingProgressElement.textContent = `Ding written locally! Dinging ${shortenedDid}...`;
+    dingProgressElement.textContent = `Split written locally! Splitting ${shortenedDid}...`;
 
     const { status: sendStatus } = await record.send(did);
 
@@ -140,9 +232,10 @@ dingForm.addEventListener('submit', async (event) => {
       return;
     }
 
-    dingProgressElement.textContent = `Dinged ${shortenedDid}!`;
+    dingProgressElement.textContent = `Done ${shortenedDid}!`;
   } catch (e) {
     dingErrorElement.textContent = e.message;
+    console.log(e);
     return;
   }
 });
@@ -151,7 +244,7 @@ async function configureProtocol() {
   const { protocols, status } = await web5.dwn.protocols.query({
     message: {
       filter: {
-        protocol: 'https://splitwise.app/protocol'
+        protocol: 'https://dinger.app/protocol'
       }
     }
   });
@@ -239,7 +332,7 @@ async function renderDings() {
 
       const dingBackButton = document.createElement('button');
       dingBackButton.className = 'ding-back';
-      dingBackButton.textContent = 'Ding agane';
+      dingBackButton.textContent = 'Split again';
       dingBackButton.dataset.toDing = record.recipient;
 
       dingBackButton.addEventListener('click', event => {
@@ -248,6 +341,13 @@ async function renderDings() {
       });
 
       dingElement.appendChild(dingBackButton);
+      const deleteRecordButton = document.createElement('button');
+      deleteRecordButton.className = 'delete-record';
+      deleteRecordButton.textContent = 'Delete';
+      deleteRecordButton.addEventListener('click', async event => {
+        const deleteResult = await record.delete();
+      });
+      dingElement.appendChild(deleteRecordButton);
       dingedList.appendChild(dingElement);
     } else {
       // Dinged By:
@@ -280,7 +380,7 @@ async function renderDings() {
 
       const dingBackButton = document.createElement('button');
       dingBackButton.className = 'ding-back';
-      dingBackButton.textContent = 'Ding Back';
+      dingBackButton.textContent = 'Split Back';
       dingBackButton.dataset.toDing = dinger;
 
       dingBackButton.addEventListener('click', event => {
@@ -289,6 +389,13 @@ async function renderDings() {
       });
 
       dingElement.appendChild(dingBackButton);
+      const deleteRecordButton = document.createElement('button');
+      deleteRecordButton.className = 'delete-record';
+      deleteRecordButton.textContent = 'Delete';
+      deleteRecordButton.addEventListener('click', async event => {
+        const deleteResult = await record.delete();
+      });
+      dingElement.appendChild(deleteRecordButton);
       dingedByList.appendChild(dingElement);
     }
   }
